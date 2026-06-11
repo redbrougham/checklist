@@ -313,6 +313,19 @@ input,textarea{font:inherit;color:inherit}
   </div>
 </div>
 
+<!-- IMPORT CHOICE MODAL -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal">
+    <h3>Import</h3>
+    <p style="font-size:var(--sm);color:var(--muted);margin-bottom:var(--sp4)">Add the imported lists alongside your existing ones, or replace everything with the backup.</p>
+    <div style="display:flex;flex-direction:column;gap:var(--sp2)">
+      <button class="btn btn-pri" id="import-merge-btn">Add to existing lists</button>
+      <button class="btn btn-danger" id="import-replace-btn">Replace all data</button>
+      <button class="btn btn-ghost" id="import-cancel-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- DIVIDER NAME MODAL -->
 <div class="modal-overlay" id="divider-modal">
   <div class="modal">
@@ -796,6 +809,8 @@ function exportData() {
   toast('Exported!');
 }
 
+var pendingImport = null;
+
 function importData() {
   var inp = document.createElement('input');
   inp.type = 'file';
@@ -821,19 +836,43 @@ function importData() {
         toast('Could not read backup file');
         return;
       }
-      showConfirm('Import backup?', 'This replaces ALL current data with the backup. Current data will be lost.', function() {
-        data = imported;
-        if (!data.nextItemId) data.nextItemId = 1;
-        if (!data.nextListId) data.nextListId = 1;
-        save();
-        renderHome();
-        toast('Imported successfully');
-      });
+      pendingImport = imported;
+      document.getElementById('import-modal').classList.add('open');
     };
     reader.readAsText(file);
   });
   inp.click();
 }
+
+document.getElementById('import-merge-btn').addEventListener('click', function() {
+  document.getElementById('import-modal').classList.remove('open');
+  if (!pendingImport) return;
+  pendingImport.lists.forEach(function(list) {
+    list.id = data.nextListId++;
+    (list.items || []).forEach(function(item) { item.id = data.nextItemId++; });
+    data.lists.push(list);
+  });
+  pendingImport = null;
+  save(); renderHome(); toast('Lists added');
+});
+
+document.getElementById('import-replace-btn').addEventListener('click', function() {
+  document.getElementById('import-modal').classList.remove('open');
+  if (!pendingImport) return;
+  data = pendingImport;
+  if (!data.nextItemId) data.nextItemId = 1;
+  if (!data.nextListId) data.nextListId = 1;
+  pendingImport = null;
+  save(); renderHome(); toast('Data replaced');
+});
+
+document.getElementById('import-cancel-btn').addEventListener('click', function() {
+  document.getElementById('import-modal').classList.remove('open');
+  pendingImport = null;
+});
+document.getElementById('import-modal').addEventListener('click', function(e) {
+  if (e.target === this) { this.classList.remove('open'); pendingImport = null; }
+});
 
 document.getElementById('export-btn').addEventListener('click', exportData);
 document.getElementById('import-btn').addEventListener('click', importData);
