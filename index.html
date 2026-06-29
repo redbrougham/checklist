@@ -130,7 +130,7 @@ input,textarea{font:inherit;color:inherit}
 .cb.on svg{opacity:1;transform:scale(1)}
 
 .title-wrap{flex:1;min-width:0}
-.item-title{font-size:var(--base);font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-title{font-size:var(--sm);font-weight:600;color:var(--txt);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;line-height:1.3}
 .item-card.done .item-title{text-decoration:line-through;color:var(--muted)}
 .item-preview{font-size:var(--xs);color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -326,6 +326,30 @@ input,textarea{font:inherit;color:inherit}
   </div>
 </div>
 
+<!-- ITEM OPTIONS MODAL -->
+<div class="modal-overlay" id="item-options-modal">
+  <div class="modal">
+    <h3>Item Options</h3>
+    <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-top:var(--sp4)">
+      <button class="btn btn-pri" id="item-edit-btn">Edit Title</button>
+      <button class="btn btn-danger" id="item-delete-btn">Delete Item</button>
+      <button class="btn btn-ghost" id="item-options-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- RENAME ITEM MODAL -->
+<div class="modal-overlay" id="rename-modal">
+  <div class="modal">
+    <h3>Edit Title</h3>
+    <input class="add-input" id="rename-input" type="text" maxlength="120" style="width:100%;margin-top:var(--sp3)"/>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="rename-cancel">Cancel</button>
+      <button class="btn btn-pri" id="rename-ok">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- DIVIDER NAME MODAL -->
 <div class="modal-overlay" id="divider-modal">
   <div class="modal">
@@ -498,6 +522,62 @@ function addDivider() {
 document.getElementById('divider-ok').addEventListener('click', addDivider);
 document.getElementById('divider-name-input').addEventListener('keydown', function(e){ if(e.key==='Enter') addDivider(); });
 
+/* ─── ITEM OPTIONS / EDIT ─── */
+var pendingItemId = null;
+function openItemOptions(id) {
+  pendingItemId = id;
+  document.getElementById('item-options-modal').classList.add('open');
+}
+document.getElementById('item-options-cancel').addEventListener('click', function(){
+  document.getElementById('item-options-modal').classList.remove('open'); pendingItemId = null;
+});
+document.getElementById('item-options-modal').addEventListener('click', function(e){
+  if (e.target === this) { this.classList.remove('open'); pendingItemId = null; }
+});
+
+document.getElementById('item-edit-btn').addEventListener('click', function() {
+  document.getElementById('item-options-modal').classList.remove('open');
+  var list = currentList(); if (!list || pendingItemId == null) return;
+  var it = list.items.find(function(x){ return x.id === pendingItemId; });
+  if (!it) return;
+  var inp = document.getElementById('rename-input');
+  inp.value = it.title;
+  document.getElementById('rename-modal').classList.add('open');
+  setTimeout(function(){ inp.focus(); inp.select(); }, 80);
+});
+
+function saveRename() {
+  var list = currentList(); if (!list || pendingItemId == null) return;
+  var it = list.items.find(function(x){ return x.id === pendingItemId; });
+  var inp = document.getElementById('rename-input');
+  var val = inp.value.trim();
+  if (!val) { inp.focus(); return; }
+  if (it) { it.title = val; renderList(); save(); }
+  document.getElementById('rename-modal').classList.remove('open');
+  pendingItemId = null;
+}
+document.getElementById('rename-ok').addEventListener('click', saveRename);
+document.getElementById('rename-input').addEventListener('keydown', function(e){ if(e.key==='Enter') saveRename(); });
+document.getElementById('rename-cancel').addEventListener('click', function(){
+  document.getElementById('rename-modal').classList.remove('open'); pendingItemId = null;
+});
+document.getElementById('rename-modal').addEventListener('click', function(e){
+  if (e.target === this) { this.classList.remove('open'); pendingItemId = null; }
+});
+
+document.getElementById('item-delete-btn').addEventListener('click', function() {
+  document.getElementById('item-options-modal').classList.remove('open');
+  var list = currentList(); if (!list || pendingItemId == null) return;
+  var id = pendingItemId;
+  var it = list.items.find(function(x){ return x.id === id; });
+  if (!it) return;
+  showConfirm('Delete "' + it.title + '"?', 'This cannot be undone.', function() {
+    list.items = list.items.filter(function(x){ return x.id !== id; });
+    renderList(); save();
+  });
+  pendingItemId = null;
+});
+
 /* ─── OPEN LIST ─── */
 function openList(id) {
   currentListId = id;
@@ -567,8 +647,8 @@ function renderList() {
     if (preview) html += '<div class="item-preview">' + esc(preview) + '</div>';
     html += '</div>';
     html += '<div class="item-right">' + moveHtml;
-    html += '<button class="icon-btn del" data-del="' + it.id + '" aria-label="Delete item">';
-    html += '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>';
+    html += '<button class="icon-btn" data-edit="' + it.id + '" aria-label="Edit item">';
+    html += '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>';
     html += '<svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
     html += '</div></div>';
     /* detail panel */
@@ -642,6 +722,8 @@ document.getElementById('items-list').addEventListener('click', function(e) {
     list.items = list.items.filter(function(x){ return x.id !== id; });
     renderList(); save(); return;
   }
+  var edit = e.target.closest('[data-edit]');
+  if (edit) { openItemOptions(+edit.getAttribute('data-edit')); return; }
   var scb = e.target.closest('[data-scb]');
   if (scb) {
     var sid = +scb.getAttribute('data-scb'), pid = +scb.getAttribute('data-parent');
@@ -666,7 +748,7 @@ document.getElementById('items-list').addEventListener('click', function(e) {
   if (addStep) { addSubstep(+addStep.getAttribute('data-addstep')); return; }
 
   var hdr = e.target.closest('[data-hdr]');
-  if (hdr && !e.target.closest('[data-cb]') && !e.target.closest('[data-del]') && !e.target.closest('.move-btns')) {
+  if (hdr && !e.target.closest('[data-cb]') && !e.target.closest('[data-edit]') && !e.target.closest('.move-btns')) {
     var id = +hdr.getAttribute('data-hdr');
     var it = list.items.find(function(x){ return x.id===id; });
     if (it) { it.open = !it.open; renderList(); }
